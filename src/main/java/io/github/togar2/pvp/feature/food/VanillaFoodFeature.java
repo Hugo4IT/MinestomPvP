@@ -6,29 +6,41 @@ import io.github.togar2.pvp.feature.RegistrableFeature;
 import io.github.togar2.pvp.feature.config.DefinedFeature;
 import io.github.togar2.pvp.feature.config.FeatureConfiguration;
 import io.github.togar2.pvp.feature.cooldown.ItemCooldownFeature;
+import io.github.togar2.pvp.utils.HeightUtil;
 import io.github.togar2.pvp.utils.PotionFlags;
 import io.github.togar2.pvp.utils.ViewUtil;
 import net.kyori.adventure.sound.Sound;
+import net.minestom.server.collision.CollisionUtils;
+import net.minestom.server.coordinate.Point;
+import net.minestom.server.coordinate.Pos;
+import net.minestom.server.coordinate.Vec;
 import net.minestom.server.entity.GameMode;
 import net.minestom.server.entity.Player;
+import net.minestom.server.entity.PlayerHand;
 import net.minestom.server.event.EventNode;
-import net.minestom.server.event.item.ItemUsageCompleteEvent;
+import net.minestom.server.event.item.PlayerFinishItemUseEvent;
 import net.minestom.server.event.player.PlayerPreEatEvent;
 import net.minestom.server.event.player.PlayerTickEvent;
 import net.minestom.server.event.trait.EntityInstanceEvent;
+import net.minestom.server.instance.Chunk;
+import net.minestom.server.instance.Instance;
 import net.minestom.server.item.ItemComponent;
 import net.minestom.server.item.ItemStack;
 import net.minestom.server.item.Material;
-import net.minestom.server.item.component.Food;
-import net.minestom.server.item.component.SuspiciousStewEffects;
+import net.minestom.server.item.component.*;
+import net.minestom.server.potion.CustomPotionEffect;
 import net.minestom.server.potion.Potion;
 import net.minestom.server.potion.PotionEffect;
+import net.minestom.server.potion.TimedPotion;
+import net.minestom.server.registry.Registry;
 import net.minestom.server.sound.SoundEvent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.OptionalInt;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -78,12 +90,12 @@ public class VanillaFoodFeature implements FoodFeature, CombatFeature, Registrab
 				return;
 			}
 			
-			event.setEatingTime(getUseTime(event.getItemStack().material(), foodComponent));
+			event.setEatingTime(getUseTime(event.getItemStack().material(), Objects.requireNonNull(event.getItemStack().get(ItemComponent.CONSUMABLE))));
 		});
 		
-		node.addListener(ItemUsageCompleteEvent.class, event -> {
+		node.addListener(PlayerFinishItemUseEvent.class, event -> {
 			if (event.getItemStack().material() != Material.MILK_BUCKET
-					&& !event.getItemStack().has(ItemComponent.FOOD))
+					&& !event.getItemStack().has(ItemComponent.CONSUMABLE))
 				return;
 			
 			onFinishEating(event.getPlayer(), event.getItemStack(), event.getHand());
@@ -97,10 +109,10 @@ public class VanillaFoodFeature implements FoodFeature, CombatFeature, Registrab
 		});
 	}
 	
-	protected void onFinishEating(Player player, ItemStack stack, Player.Hand hand) {
+	protected void onFinishEating(Player player, ItemStack stack, PlayerHand hand) {
 		this.eat(player, stack);
 		
-		Food component = stack.get(ItemComponent.FOOD);
+		Consumable component = stack.get(ItemComponent.CONSUMABLE);
 		assert component != null;
 		ThreadLocalRandom random = ThreadLocalRandom.current();
 		
@@ -112,20 +124,94 @@ public class VanillaFoodFeature implements FoodFeature, CombatFeature, Registrab
 					0.5f, random.nextFloat() * 0.1f + 0.9f
 			), player);
 		}
+
+		UseCooldown cooldown = stack.get(ItemComponent.USE_COOLDOWN);
+
+		if (cooldown != null) {
+			itemCooldownFeature.setCooldown(player, cooldown.cooldownGroup(), (int)(cooldown.seconds() * 20.0f));
+		}
 		
-		List<Food.EffectChance> effectList = component.effects();
+		List<ConsumeEffect> effectList = component.effects();
 		
-		for (Food.EffectChance effect : effectList) {
-			if (random.nextFloat() < effect.probability()) {
-				player.addEffect(new Potion(
-						effect.effect().id(), effect.effect().amplifier(),
-						effect.effect().duration(),
-						PotionFlags.create(
-								effect.effect().isAmbient(),
-								effect.effect().showParticles(),
-								effect.effect().showIcon()
-						)
-				));
+		for (ConsumeEffect effect : effectList) {
+			switch (effect) {
+				case ConsumeEffect.ApplyEffects applyEffects:
+					if (random.nextFloat() < applyEffects.probability()) {
+						for (CustomPotionEffect potionEffect : applyEffects.effects()) {
+							player.addEffect(new Potion(
+									potionEffect.id(), potionEffect.amplifier(),
+									potionEffect.duration(),
+									PotionFlags.create(
+											potionEffect.isAmbient(),
+											potionEffect.showParticles(),
+											potionEffect.showIcon()
+									)
+							));
+						}
+					}
+
+					break;
+				case ConsumeEffect.ClearAllEffects clearAllEffects:
+					player.clearEffects();
+
+					break;
+				case ConsumeEffect.PlaySound playSound:
+					player.playSound(Sound.sound(playSound.sound().key(), Sound.Source.PLAYER, 1.0f, 1.0f));
+
+					break;
+				case ConsumeEffect.RemoveEffects removeEffects:
+					var toRemove = new ArrayList<PotionEffect>();
+
+					for (TimedPotion potion : player.getActiveEffects()) {
+						if (removeEffects.effects().contains(potion.potion().effect())) {
+							toRemove.add(potion.potion().effect());
+						}
+					}
+
+					for (PotionEffect potionEffect : toRemove) {
+						player.removeEffect(potionEffect);
+					}
+
+					break;
+				case ConsumeEffect.TeleportRandomly teleportRandomly:
+					Instance instance = player.getInstance();
+
+					// Vanilla minecraft also makes 16 attempts
+					int i = 0;
+					for (; i < 16; i++) {
+						Pos newPosition = player.getPosition().add(random.nextDouble(-0.5f * teleportRandomly.diameter(), 0.5f * teleportRandomly.diameter()));
+
+						if (!instance.getBlock(newPosition.sub(0.0, 1.0, 0.0)).isSolid()) {
+							OptionalInt height = HeightUtil.getHeight(instance, player.getPosition().x(), player.getPosition().z());
+
+							if (height.isPresent()) {
+								newPosition = newPosition.withY(height.getAsInt());
+							} else {
+								continue;
+							}
+						}
+
+
+						if (!instance.getBlock(newPosition).isSolid() && !instance.getBlock(newPosition.add(0.0, 1.0, 0.0)).isSolid()) {
+							player.teleport(newPosition);
+
+							i = -1;
+							break;
+						}
+					}
+
+					// Teleportation attempts failed
+					if (i == 16) {
+						OptionalInt height = HeightUtil.getHeight(instance, player.getPosition().x(), player.getPosition().z());
+
+						if (height.isPresent()) {
+							player.teleport(player.getPosition().withY(height.getAsInt()));
+						}
+					}
+
+					break;
+				default:
+					break;
 			}
 		}
 		
@@ -137,11 +223,10 @@ public class VanillaFoodFeature implements FoodFeature, CombatFeature, Registrab
 			}
 		}
 		
-		ItemStack leftOver = component.usingConvertsTo();
-		
-		onEat(player, stack);
-		if (leftOver.isAir()) leftOver = getUsingConvertsTo(stack);
-		
+		ItemStack leftOver = stack.get(ItemComponent.USE_REMAINDER);
+
+		if (leftOver == null || leftOver.isAir()) leftOver = getUsingConvertsTo(stack);
+
 		if (player.getGameMode() != GameMode.CREATIVE) {
 			if (leftOver != null && !leftOver.isAir()) {
 				if (stack.amount() == 1) {
@@ -182,14 +267,14 @@ public class VanillaFoodFeature implements FoodFeature, CombatFeature, Registrab
 	protected void tickEatingSounds(Player player) {
 		ItemStack stack = player.getItemInHand(Objects.requireNonNull(player.getItemUseHand()));
 		
-		Food component = stack.get(ItemComponent.FOOD);
+		Consumable component = stack.get(ItemComponent.CONSUMABLE);
 		if (component == null) return;
 		
 		long useTime = getUseTime(stack.material(), component);
 		long usedTicks = player.getCurrentItemUseTime();
 		long remainingUseTicks = useTime - usedTicks;
 		
-		boolean canTrigger = component.eatDurationTicks() < 32 || remainingUseTicks <= useTime - 7;
+		boolean canTrigger = component.consumeTicks() < 32 || remainingUseTicks <= useTime - 7;
 		boolean shouldTrigger = canTrigger && remainingUseTicks % 4 == 0;
 		if (!shouldTrigger) return;
 		
@@ -229,18 +314,8 @@ public class VanillaFoodFeature implements FoodFeature, CombatFeature, Registrab
 		return null;
 	}
 	
-	protected void onEat(Player player, ItemStack stack) {
-		if (stack.material() == Material.MILK_BUCKET) {
-			player.clearEffects();
-		} else if (stack.material() == Material.HONEY_BOTTLE) {
-			player.removeEffect(PotionEffect.POISON);
-		} else if (stack.material() == Material.CHORUS_FRUIT) {
-			ChorusFruitUtil.tryChorusTeleport(player, itemCooldownFeature);
-		}
-	}
-	
-	protected int getUseTime(@NotNull Material material, @NotNull Food foodComponent) {
+	protected int getUseTime(@NotNull Material material, @NotNull Consumable component) {
 		if (material == Material.HONEY_BOTTLE) return 40;
-		return foodComponent.eatDurationTicks();
+		return component.consumeTicks();
 	}
 }

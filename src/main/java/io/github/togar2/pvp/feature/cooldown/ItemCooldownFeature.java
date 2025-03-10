@@ -10,15 +10,15 @@ import net.minestom.server.item.Material;
 public interface ItemCooldownFeature extends CombatFeature {
 	ItemCooldownFeature NO_OP = new ItemCooldownFeature() {
 		@Override
-		public boolean hasCooldown(Player player, Material material) {
+		public boolean hasCooldown(Player player, String group) {
 			return false;
 		}
 		
 		@Override
-		public void setCooldown(Player player, Material material, int ticks) {}
+		public void setCooldown(Player player, String group, int ticks) {}
 	};
 	
-	boolean hasCooldown(Player player, Material material);
+	boolean hasCooldown(Player player, String group);
 	
-	void setCooldown(Player player, Material material, int ticks);
+	void setCooldown(Player player, String group, int ticks);
 }

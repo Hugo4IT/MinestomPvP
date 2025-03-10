@@ -85,8 +85,8 @@ public class VanillaEffectFeature implements EffectFeature, RegistrableFeature {
 				
 				if (durationLeft > 0) {
 					CombatPotionEffect combatPotionEffect = CombatPotionEffects.get(potion.potion().effect());
-					byte amplifier = potion.potion().amplifier();
-					
+					byte amplifier = (byte) potion.potion().amplifier();
+
 					if (combatPotionEffect.canApplyUpdateEffect(durationLeft, amplifier)) {
 						combatPotionEffect.applyUpdateEffect(entity, amplifier, exhaustionFeature, foodFeature);
 					}
@@ -107,7 +107,7 @@ public class VanillaEffectFeature implements EffectFeature, RegistrableFeature {
 			potionMap.put(event.getPotion().effect(), event.getPotion().duration());
 			
 			CombatPotionEffect combatPotionEffect = CombatPotionEffects.get(event.getPotion().effect());
-			combatPotionEffect.onApplied(entity, event.getPotion().amplifier(), version);
+			combatPotionEffect.onApplied(entity, (byte) event.getPotion().amplifier(), version);
 			
 			updatePotionVisibility(entity);
 		});
@@ -116,7 +116,7 @@ public class VanillaEffectFeature implements EffectFeature, RegistrableFeature {
 			if (!(event.getEntity() instanceof LivingEntity entity)) return;
 			
 			CombatPotionEffect combatPotionEffect = CombatPotionEffects.get(event.getPotion().effect());
-			combatPotionEffect.onRemoved(entity, event.getPotion().amplifier(), version);
+			combatPotionEffect.onRemoved(entity, (byte) event.getPotion().amplifier(), version);
 			
 			//Delay update 1 tick because we need to have the removing effect removed
 			MinecraftServer.getSchedulerManager()
@@ -225,7 +225,7 @@ public class VanillaEffectFeature implements EffectFeature, RegistrableFeature {
 				CombatPotionEffect combatPotionEffect = CombatPotionEffects.get(potion.effect());
 				if (combatPotionEffect.isInstant()) {
 					combatPotionEffect.applyInstantEffect(arrow, null,
-							entity, potion.amplifier(), 1.0, exhaustionFeature, foodFeature);
+							entity, (byte) potion.amplifier(), 1.0, exhaustionFeature, foodFeature);
 				} else {
 					int duration = Math.max(potion.duration() / 8, 1);
 					entity.addEffect(new Potion(potion.effect(), potion.amplifier(), duration, potion.flags()));
@@ -247,7 +247,7 @@ public class VanillaEffectFeature implements EffectFeature, RegistrableFeature {
 					CombatPotionEffect combatPotionEffect = CombatPotionEffects.get(potion.effect());
 					if (combatPotionEffect.isInstant()) {
 						combatPotionEffect.applyInstantEffect(arrow, null,
-								entity, potion.amplifier(), 1.0, exhaustionFeature, foodFeature);
+								entity, (byte) potion.amplifier(), 1.0, exhaustionFeature, foodFeature);
 					} else {
 						entity.addEffect(new Potion(potion.effect(), potion.amplifier(),
 								potion.duration(), potion.flags()));
@@ -262,7 +262,7 @@ public class VanillaEffectFeature implements EffectFeature, RegistrableFeature {
 			CombatPotionEffect combatPotionEffect = CombatPotionEffects.get(potion.effect());
 			if (combatPotionEffect.isInstant()) {
 				combatPotionEffect.applyInstantEffect(source, attacker,
-						entity, potion.amplifier(), proximity, exhaustionFeature, foodFeature);
+						entity, (byte) potion.amplifier(), proximity, exhaustionFeature, foodFeature);
 			} else {
 				int duration = potion.duration();
 				if (version.legacy()) duration = (int) Math.floor(duration * 0.75);

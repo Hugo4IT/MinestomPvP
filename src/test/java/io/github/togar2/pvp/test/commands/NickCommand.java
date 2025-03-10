@@ -1,5 +1,6 @@
 package io.github.togar2.pvp.test.commands;
 
+import net.kyori.adventure.text.Component;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.command.builder.Command;
 import net.minestom.server.command.builder.arguments.ArgumentType;
@@ -17,7 +18,7 @@ public class NickCommand extends Command {
 			String username = args.get(name);
 			Player player = sender.asPlayer();
 			
-			player.setUsernameField(username);
+			player.setDisplayName(Component.text(username));
 			//Send packets
 			player.setSkin(player.getSkin());
 		}).schedule(), name);

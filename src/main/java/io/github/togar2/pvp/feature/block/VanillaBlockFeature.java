@@ -13,10 +13,7 @@ import io.github.togar2.pvp.utils.CombatVersion;
 import net.kyori.adventure.sound.Sound;
 import net.minestom.server.coordinate.Pos;
 import net.minestom.server.coordinate.Vec;
-import net.minestom.server.entity.Entity;
-import net.minestom.server.entity.EquipmentSlot;
-import net.minestom.server.entity.LivingEntity;
-import net.minestom.server.entity.Player;
+import net.minestom.server.entity.*;
 import net.minestom.server.entity.damage.Damage;
 import net.minestom.server.entity.metadata.LivingEntityMeta;
 import net.minestom.server.entity.metadata.projectile.AbstractArrowMeta;
@@ -101,10 +98,10 @@ public class VanillaBlockFeature implements BlockFeature, CombatFeature {
 		
 		if (amount >= 3) {
 			int shieldDamage = 1 + (int) Math.floor(amount);
-			Player.Hand hand = ((LivingEntityMeta) entity.getEntityMeta()).getActiveHand();
+			PlayerHand hand = ((LivingEntityMeta) entity.getEntityMeta()).getActiveHand();
 			itemDamageFeature.damageEquipment(
 					entity,
-					hand == Player.Hand.MAIN ?
+					hand == PlayerHand.MAIN ?
 							EquipmentSlot.MAIN_HAND : EquipmentSlot.OFF_HAND,
 					shieldDamage
 			);
@@ -144,13 +141,13 @@ public class VanillaBlockFeature implements BlockFeature, CombatFeature {
 	}
 	
 	protected void disableShield(Player player) {
-		itemCooldownFeature.setCooldown(player, Material.SHIELD, 100);
+		itemCooldownFeature.setCooldown(player, Material.SHIELD.key().asString(), 100);
 		
 		// Shield disable status
 		player.triggerStatus((byte) 30);
 		player.triggerStatus((byte) 9);
 		
-		Player.Hand hand = player.getPlayerMeta().getActiveHand();
-		player.refreshActiveHand(false, hand == Player.Hand.OFF, false);
+		PlayerHand hand = player.getPlayerMeta().getActiveHand();
+		player.refreshActiveHand(false, hand == PlayerHand.OFF, false);
 	}
 }

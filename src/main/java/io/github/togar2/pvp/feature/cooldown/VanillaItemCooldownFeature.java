@@ -9,7 +9,9 @@ import net.minestom.server.event.EventNode;
 import net.minestom.server.event.player.PlayerTickEvent;
 import net.minestom.server.event.player.PlayerUseItemEvent;
 import net.minestom.server.event.trait.EntityInstanceEvent;
+import net.minestom.server.item.ItemComponent;
 import net.minestom.server.item.Material;
+import net.minestom.server.item.component.UseCooldown;
 import net.minestom.server.network.packet.server.play.SetCooldownPacket;
 import net.minestom.server.tag.Tag;
 
@@ -26,7 +28,7 @@ public class VanillaItemCooldownFeature implements ItemCooldownFeature, Registra
 			VanillaItemCooldownFeature::initPlayer
 	);
 	
-	public static final Tag<Map<Material, Long>> COOLDOWN_END = Tag.Transient("cooldownEnd");
+	public static final Tag<Map<String, Long>> COOLDOWN_END = Tag.Transient("cooldownEnd");
 	
 	private static void initPlayer(Player player, boolean firstInit) {
 		player.setTag(COOLDOWN_END, new HashMap<>());
@@ -42,14 +44,14 @@ public class VanillaItemCooldownFeature implements ItemCooldownFeature, Registra
 	public void init(EventNode<EntityInstanceEvent> node) {
 		node.addListener(PlayerTickEvent.class, event -> {
 			Player player = event.getPlayer();
-			Map<Material, Long> cooldown = player.getTag(COOLDOWN_END);
+			Map<String, Long> cooldown = player.getTag(COOLDOWN_END);
 			if (cooldown.isEmpty()) return;
 			long time = System.currentTimeMillis();
 			
-			Iterator<Map.Entry<Material, Long>> iterator = cooldown.entrySet().iterator();
+			Iterator<Map.Entry<String, Long>> iterator = cooldown.entrySet().iterator();
 			
 			while (iterator.hasNext()) {
-				Map.Entry<Material, Long> entry = iterator.next();
+				Map.Entry<String, Long> entry = iterator.next();
 				if (entry.getValue() <= time) {
 					iterator.remove();
 					sendCooldownPacket(player, entry.getKey(), 0);
@@ -58,25 +60,27 @@ public class VanillaItemCooldownFeature implements ItemCooldownFeature, Registra
 		});
 		
 		node.addListener(PlayerUseItemEvent.class, event -> {
-			if (hasCooldown(event.getPlayer(), event.getItemStack().material()))
+			UseCooldown cooldown = event.getItemStack().get(ItemComponent.USE_COOLDOWN);
+
+			if (cooldown != null && hasCooldown(event.getPlayer(), cooldown.cooldownGroup()))
 				event.setCancelled(true);
 		});
 	}
 	
 	@Override
-	public boolean hasCooldown(Player player, Material material) {
-		Map<Material, Long> cooldown = player.getTag(COOLDOWN_END);
-		return cooldown.containsKey(material) && cooldown.get(material) > System.currentTimeMillis();
+	public boolean hasCooldown(Player player, String group) {
+		Map<String, Long> cooldown = player.getTag(COOLDOWN_END);
+		return cooldown.containsKey(group) && cooldown.get(group) > System.currentTimeMillis();
 	}
 	
 	@Override
-	public void setCooldown(Player player, Material material, int ticks) {
-		Map<Material, Long> cooldown = player.getTag(COOLDOWN_END);
-		cooldown.put(material, System.currentTimeMillis() + (long) ticks * MinecraftServer.TICK_MS);
-		sendCooldownPacket(player, material, ticks);
+	public void setCooldown(Player player, String group, int ticks) {
+		Map<String, Long> cooldown = player.getTag(COOLDOWN_END);
+		cooldown.put(group, System.currentTimeMillis() + (long) ticks * MinecraftServer.TICK_MS);
+		sendCooldownPacket(player, group, ticks);
 	}
 	
-	protected void sendCooldownPacket(Player player, Material material, int ticks) {
-		player.getPlayerConnection().sendPacket(new SetCooldownPacket(material.id(), ticks));
+	protected void sendCooldownPacket(Player player, String group, int ticks) {
+		player.getPlayerConnection().sendPacket(new SetCooldownPacket(group, ticks));
 	}
 }

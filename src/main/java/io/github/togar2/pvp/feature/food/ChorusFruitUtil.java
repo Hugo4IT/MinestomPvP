@@ -93,6 +93,6 @@ public class ChorusFruitUtil {
 			}
 		}
 		
-		cooldownFeature.setCooldown(player, Material.CHORUS_FRUIT, 20);
+		cooldownFeature.setCooldown(player, Material.CHORUS_FRUIT.key().asString(), 20);
 	}
 }

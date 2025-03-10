@@ -63,7 +63,7 @@ public class VanillaExhaustionFeature implements ExhaustionFeature, RegistrableF
 	}
 	
 	protected void onTick(Player player) {
-		if (!player.getGameMode().canTakeDamage()) return;
+		if (player.getGameMode().invulnerable()) return;
 		
 		float exhaustion = player.getTag(EXHAUSTION);
 		if (exhaustion > 4) {
@@ -105,7 +105,7 @@ public class VanillaExhaustionFeature implements ExhaustionFeature, RegistrableF
 	
 	@Override
 	public void addExhaustion(Player player, float exhaustion) {
-		if (!player.getGameMode().canTakeDamage()) return;
+		if (player.getGameMode().invulnerable()) return;
 		PlayerExhaustEvent playerExhaustEvent = new PlayerExhaustEvent(player, exhaustion);
 		EventDispatcher.callCancellable(playerExhaustEvent, () -> player.setTag(EXHAUSTION,
 				Math.min(player.getTag(EXHAUSTION) + playerExhaustEvent.getAmount(), 40)));
