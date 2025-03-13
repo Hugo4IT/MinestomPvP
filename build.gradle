@@ -28,6 +28,3 @@ dependencies {
     compileOnly 'net.minestom:minestom-snapshots:39d445482f'
     testImplementation 'net.minestom:minestom-snapshots:39d445482f'
 }
-
-// Gradle + IntelliJ weirdness workaround
-tasks.register("prepareKotlinBuildScriptModel"){}
