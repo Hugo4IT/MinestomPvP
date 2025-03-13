@@ -10,15 +10,6 @@ java.sourceCompatibility = 21
 java.targetCompatibility = 21
 compileJava.options.encoding = 'UTF-8'
 
-repositories {
-    mavenLocal()
-    mavenCentral()
-    maven {
-        name "Jitpack"
-        url "https://jitpack.io/"
-    }
-}
-
 java {
     withJavadocJar()
     withSourcesJar()
@@ -27,4 +18,13 @@ java {
 dependencies {
     compileOnly 'net.minestom:minestom-snapshots:39d445482f'
     testImplementation 'net.minestom:minestom-snapshots:39d445482f'
+    //testImplementation 'com.github.TogAr2:MinestomFluids:b237b13a4b'
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+        }
+    }
 }
