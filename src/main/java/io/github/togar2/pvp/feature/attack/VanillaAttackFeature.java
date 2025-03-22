@@ -80,11 +80,9 @@ public class VanillaAttackFeature implements AttackFeature, RegistrableFeature {
 	@Override
 	public void init(EventNode<EntityInstanceEvent> node) {
 		node.addListener(EntityAttackEvent.class, event -> {
-			if (event.getEntity() instanceof Player player
-				&& player.getGameMode() != GameMode.SPECTATOR
-				&& !player.isDead()
-				&& player.getDistanceSquared(event.getTarget()) < MAX_DISTANCE_SQUARED) {
-				performAttack(player, event.getTarget());
+			if ((!(event.getEntity() instanceof Player player) || player.getGameMode() != GameMode.SPECTATOR)
+				&& (event.getEntity() instanceof LivingEntity livingEntity && !livingEntity.isDead() && livingEntity.getDistanceSquared(event.getTarget()) < MAX_DISTANCE_SQUARED)) {
+				performAttack(livingEntity, event.getTarget());
 			}
 		});
 	}
